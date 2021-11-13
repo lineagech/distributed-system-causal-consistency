@@ -73,7 +73,7 @@ func DB_Get(key string) string {
     } else {
         fmt.Println("DB Get (key %s: value %s)", key, value)
     }
-    return nil
+    return value
 }
 
 //func main() {
