@@ -51,6 +51,8 @@ func InitDB() error {
         //panic(err)
         return errors.New("Initialize Redis DB failed")
     }
+    _ = rdb.FlushDB(ctx).Err()
+
     return nil
 }
 
