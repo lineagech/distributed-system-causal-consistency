@@ -11,7 +11,7 @@ import (
     "time"
 )
 
-var handlePeerRequestCallback func ([]byte, string) = nil
+var handlePeerRequestCallback func ([]byte, string) []byte = nil
 
 func SendMsg(conn net.Conn, msg []byte) error {
     //log.Println("Send msg ", string(msg))
@@ -53,26 +53,26 @@ func ConnectToServer(dest_ip string, dest_port string) net.Conn {
     return conn
 }
 
-func SendReadRequest(conn net.Conn, key int, peer_addr string) error {
+func SendReadRequest(conn net.Conn, key string, peer_addr string) error {
     //fmt.Println("Send Register Request ", conn.RemoteAddr().String(), files, lengths)
     req := messages.EncodeReadRequest(key, peer_addr)
     return SendMsg(conn, req)
 }
 
 
-func SendWriteRequest(conn net.Conn, key int, value string, peer_addr string) error {
+func SendWriteRequest(conn net.Conn, key string, value string, peer_addr string) error {
     //fmt.Println("Send File Locations Request for %s", conn.RemoteAddr().String(), filename)
     req := messages.EncodeWriteRequest(key, value, peer_addr)
     return SendMsg(conn, req)
 }
 
-func SendPropagateRequest(conn net.Conn, key int, value string, dependency_list []messages.Dependency_t, peer_addr string) error {
+func SendPropagateRequest(conn net.Conn, key string, value string, dependency_list []messages.Dependency_t, peer_addr string) error {
     //fmt.Println("Send Chunk Register Request", conn.RemoteAddr().String())
     req := messages.EncodePropagateRequest(key, value, dependency_list, peer_addr)
     return SendMsg(conn, req)
 }
 
-func RegisterHandlePeerRequestCallBack(callback func([]byte, string)){
+func RegisterHandlePeerRequestCallBack(callback func([]byte, string) []byte){
     handlePeerRequestCallback = callback
 }
 

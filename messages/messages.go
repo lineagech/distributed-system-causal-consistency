@@ -1,22 +1,20 @@
 package messages
 
 import (
-    "os"
-    "fmt"
+    _ "os"
+    _ "fmt"
     _ "net"
     _"container/list"
-    "strings"
-    "bytes"
+    _ "strings"
+    _ "bytes"
     _ "io"
     "strconv"
     _ "sort"
     "encoding/json"
     _ "bufio"
-    "log"
+    _ "log"
     _ "time"
     _ "path/filepath"
-    "client"
-    "server"
 )
 
 type PeerRequest int
@@ -40,13 +38,13 @@ type Data_info_t struct{
 }
 
 type Dependency_t struct{
-    Key int,
+    Key string
     Version Version_t
 }
 
 /* Request and Response Definition */
 type Read_request_t struct {
-    Key int
+    Key string
     PeerAddr string
 }
 
@@ -56,8 +54,8 @@ type Read_response_t struct {
 }
 
 type Write_request_t struct {
-    Key int
-    Value string.
+    Key string
+    Value string
     PeerAddr string
 }
 
@@ -75,10 +73,10 @@ type Propagate_response_t struct {
 }
 
 
-func EncodeReadRequest(key int, peer_addr string) []byte {
+func EncodeReadRequest(key string, peer_addr string) []byte {
     var req = Read_request_t {
                 key,
-                peer_addr
+                peer_addr,
               }
     req_bytes, _ := json.Marshal(&req)
     //fmt.Println("Encode Read Request: ", string(req_bytes))
@@ -92,11 +90,11 @@ func EncodeReadRequest(key int, peer_addr string) []byte {
     return []byte(req_str)
 }
 
-func EncodeWriteRequest(key int, value string, peer_addr string) []byte {
+func EncodeWriteRequest(key string, value string, peer_addr string) []byte {
     var req = Write_request_t {
                 key,
                 value,
-                peer_addr
+                peer_addr,
               }
     req_bytes, _ := json.Marshal(&req)
     //fmt.Println("Encode Write Request: ", string(req_bytes))
@@ -110,15 +108,15 @@ func EncodeWriteRequest(key int, value string, peer_addr string) []byte {
     return []byte(req_str)
 }
 
-func EncodePropagateRequest(key int, value string, dependency_list []Dependency_t, peer_addr string) []byte {
+func EncodePropagateRequest(key string, value string, dependency_list []Dependency_t, peer_addr string) []byte {
     var write_req = Write_request_t {
                 key,
                 value,
-                peer_addr
+                peer_addr,
               }
     var req = Propagate_request_t {
                 write_req,
-                dependency_list
+                dependency_list,
               }
 
     req_bytes, _ := json.Marshal(&req)

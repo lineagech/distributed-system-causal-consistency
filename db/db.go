@@ -9,11 +9,11 @@ import (
 
 var ctx = context.Background()
 
-var rdb *Client = nil
+var rdb *redis.Client = nil
 
 func ExampleClient() {
     rdb := redis.NewClient(&redis.Options{
-        Addr:     "localhost:7001",
+        Addr:     "localhost:12013",
         Password: "", // no password set
         DB:       0,  // use default DB
     })
@@ -43,12 +43,12 @@ func ExampleClient() {
 
 func InitDB() error {
     rdb = redis.NewClient(&redis.Options{
-        Addr:     "localhost:7001",
+        Addr:     "localhost:12013",
         Password: "",
         DB:       0,
     })
     if rdb == nil {
-        panic(err)
+        //panic(err)
         return errors.New("Initialize Redis DB failed")
     }
     return nil
@@ -69,7 +69,7 @@ func DB_Get(key string) string {
         fmt.Printf("Key %s does not exist\n", key)
     } else if err != nil {
         panic(err)
-        return errors.New(fmt.Sprintf("DB Get (%s) failed", key))
+        //return errors.New(fmt.Sprintf("DB Get (%s) failed", key))
     } else {
         fmt.Println("DB Get (key %s: value %s)", key, value)
     }

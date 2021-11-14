@@ -9,14 +9,13 @@ import (
     "connect"
     "messages"
     "strings"
-    "strconv"
-    "sort"
-    "math/rand"
-    "log"
-    "sync"
-    "snapshot"
-    "golang.org/x/sys/unix"
-    "io/ioutil"
+    _"strconv"
+    _"sort"
+    _"math/rand"
+    _"log"
+    _"sync"
+    _"golang.org/x/sys/unix"
+    _"io/ioutil"
 )
 
 type UserInput int
@@ -36,10 +35,10 @@ func cmdArgs() {
 }
 
 
-func parseUserInput(line string) (UserInput, string, int, string) {
+func parseUserInput(line string) (UserInput, string, string, string) {
     var res UserInput = Invalid
     var server_addr string
-    var key int
+    var key string
     var value string
     if strings.HasPrefix(line, "read") {
         res = Read
@@ -49,8 +48,7 @@ func parseUserInput(line string) (UserInput, string, int, string) {
     //log.Println("Line ", line)
     split_line := strings.Split(line, " ")
     server_addr = split_line[1]
-    key, err := strconv.Atoi(split_line[2])
-    messages.check_err(err)
+    key = split_line[2]
     if (res == Read){
         value = ""
     }else{
@@ -60,7 +58,7 @@ func parseUserInput(line string) (UserInput, string, int, string) {
     return res, server_addr, key, value
 }
 
-func readData(key int, server_addr string){
+func readData(key string, server_addr string){
     for {
         server_addr_split := strings.Split(server_addr, ":")
         conn := connect.ConnectToServer(server_addr_split[0], server_addr_split[1])
@@ -76,7 +74,7 @@ func readData(key int, server_addr string){
         }
         read_resp := recv_msg.(messages.Read_response_t)
 
-        if read_resp.Succ == 1 {
+        if read_resp.Read_succ == 1 {
             //log.Printf("%s: Read for key = %d  Succeeded, value is %s\n", PeerName, key, value)
             break
         } else {
@@ -87,7 +85,7 @@ func readData(key int, server_addr string){
 }
 
 
-func writeData(key int, value string, server_addr string){
+func writeData(key string, value string, server_addr string){
     for {
         server_addr_split := strings.Split(server_addr, ":")
         conn := connect.ConnectToServer(server_addr_split[0], server_addr_split[1])
@@ -103,7 +101,7 @@ func writeData(key int, value string, server_addr string){
         }
         write_resp := recv_msg.(messages.Write_response_t)
 
-        if write_resp.Succ == 1 {
+        if write_resp.Write_succ == 1 {
             //log.Printf("%s: Write for key = %d  Succeeded\n", PeerName, key)
             break
         } else {
@@ -142,6 +140,7 @@ func processClientRequest() {
 func main() {
     cmdArgs()
     if len(*ipAddr) == 0 {
+        fmt.Println("ip addr is empty")
         os.Exit(-1)
     }
     PeerName = *ipAddr // 127.0.0.1:port number (used to identify each client)
