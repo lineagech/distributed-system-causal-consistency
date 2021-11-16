@@ -53,22 +53,22 @@ func ConnectToServer(dest_ip string, dest_port string) net.Conn {
     return conn
 }
 
-func SendReadRequest(conn net.Conn, key string, peer_addr string) error {
+func SendReadRequest(conn net.Conn, key string) error {
     //fmt.Println("Send Register Request ", conn.RemoteAddr().String(), files, lengths)
-    req := messages.EncodeReadRequest(key, peer_addr)
+    req := messages.EncodeReadRequest(key)
     return SendMsg(conn, req)
 }
 
 
-func SendWriteRequest(conn net.Conn, key string, value string, peer_addr string) error {
+func SendWriteRequest(conn net.Conn, key string, value string, delay_1 int, delay_2 int) error {
     //fmt.Println("Send File Locations Request for %s", conn.RemoteAddr().String(), filename)
-    req := messages.EncodeWriteRequest(key, value, peer_addr)
+    req := messages.EncodeWriteRequest(key, value, delay_1, delay_2)
     return SendMsg(conn, req)
 }
 
-func SendPropagateRequest(conn net.Conn, key string, value string, dependency_list []messages.Dependency_t, peer_addr string) error {
+func SendPropagateRequest(conn net.Conn, key string, value string, dependency_list []messages.Dependency_t) error {
     //fmt.Println("Send Chunk Register Request", conn.RemoteAddr().String())
-    req := messages.EncodePropagateRequest(key, value, dependency_list, peer_addr)
+    req := messages.EncodePropagateRequest(key, value, dependency_list)
     return SendMsg(conn, req)
 }
 
@@ -109,6 +109,7 @@ func handleConnection(conn net.Conn) {
         return
     }
 
+    //fmt.Println("handle connection ", string(buffer))
 
     // handle the request
     if (handlePeerRequestCallback != nil){

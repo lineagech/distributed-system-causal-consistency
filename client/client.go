@@ -5,11 +5,11 @@ import (
     "fmt"
     "bufio"
     "os"
-    "flag"
+    _"flag"
     "connect"
     "messages"
     "strings"
-    _"strconv"
+    "strconv"
     _"sort"
     _"math/rand"
     _"log"
@@ -19,7 +19,6 @@ import (
 )
 
 type UserInput int
-var PeerName string
 
 const (
     Read UserInput = iota
@@ -27,19 +26,14 @@ const (
     Invalid
 )
 
-var ipAddr *string
 
-func cmdArgs() {
-    ipAddr = flag.String("ip", "", "ip exposed to the network")
-    flag.Parse()
-}
-
-
-func parseUserInput(line string) (UserInput, string, string, string) {
+func parseUserInput(line string) (UserInput, string, string, string, int, int) {
     var res UserInput = Invalid
     var server_addr string
     var key string
     var value string
+    var delay_1 int
+    var delay_2 int
     if strings.HasPrefix(line, "read") {
         res = Read
     } else if strings.HasPrefix(line, "write") {
@@ -51,18 +45,22 @@ func parseUserInput(line string) (UserInput, string, string, string) {
     key = split_line[2]
     if (res == Read){
         value = ""
+        delay_1 = 0
+        delay_2 = 0
     }else{
         value = split_line[3]
+        delay_1, _ = strconv.Atoi(split_line[4])
+        delay_2, _ = strconv.Atoi(split_line[5])
     }
 
-    return res, server_addr, key, value
+    return res, server_addr, key, value, delay_1, delay_2
 }
 
 func readData(key string, server_addr string){
     for {
         server_addr_split := strings.Split(server_addr, ":")
         conn := connect.ConnectToServer(server_addr_split[0], server_addr_split[1])
-        err := connect.SendReadRequest(conn, key, PeerName)
+        err := connect.SendReadRequest(conn, key)
         if err != nil {
             conn.Close()
             continue
@@ -75,21 +73,21 @@ func readData(key string, server_addr string){
         read_resp := recv_msg.(messages.Read_response_t)
 
         if read_resp.Read_succ == 1 {
-            //log.Printf("%s: Read for key = %d  Succeeded, value is %s\n", PeerName, key, value)
+            fmt.Printf("Read for key = %s  Succeeded, value is %s\n", key, read_resp.Value)
             break
         } else {
-            //log.Printf("%s: Read for key = %d  failed\n", PeerName, key)
+            fmt.Printf("Read for key = %s  failed\n", key)
             continue
         }
     }
 }
 
 
-func writeData(key string, value string, server_addr string){
+func writeData(key string, value string, server_addr string, delay_1 int, delay_2 int){
     for {
         server_addr_split := strings.Split(server_addr, ":")
         conn := connect.ConnectToServer(server_addr_split[0], server_addr_split[1])
-        err := connect.SendWriteRequest(conn, key, value, PeerName)
+        err := connect.SendWriteRequest(conn, key, value, delay_1, delay_2)
         if err != nil {
             conn.Close()
             continue
@@ -102,10 +100,10 @@ func writeData(key string, value string, server_addr string){
         write_resp := recv_msg.(messages.Write_response_t)
 
         if write_resp.Write_succ == 1 {
-            //log.Printf("%s: Write for key = %d  Succeeded\n", PeerName, key)
+            fmt.Printf("Write for key = %s  Succeeded\n", key)
             break
         } else {
-            //log.Printf("%s: Write for key = %d  failed\n", PeerName, key)
+            fmt.Printf("Write for key = %s  failed\n", key)
             continue
         }
     }
@@ -126,24 +124,18 @@ func processClientRequest() {
         if len(line) == 0 {
             continue
         }
-        input, server_addr, key, value := parseUserInput(line)
+        input, server_addr, key, value, delay_1, delay_2 := parseUserInput(line)
 
         if input == Read {
             go readData(key, server_addr) // for read request, the value is ""
         } else if input == Write {
-            go writeData(key, value, server_addr)
+            go writeData(key, value, server_addr, delay_1, delay_2)
         }
     }
 }
 
 
 func main() {
-    cmdArgs()
-    if len(*ipAddr) == 0 {
-        fmt.Println("ip addr is empty")
-        os.Exit(-1)
-    }
-    PeerName = *ipAddr // 127.0.0.1:port number (used to identify each client)
     processClientRequest()
 }
 

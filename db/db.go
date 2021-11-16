@@ -13,7 +13,7 @@ var rdb *redis.Client = nil
 
 func ExampleClient() {
     rdb := redis.NewClient(&redis.Options{
-        Addr:     "localhost:12013",
+        Addr:     "localhost:7001",
         Password: "", // no password set
         DB:       0,  // use default DB
     })
@@ -41,9 +41,10 @@ func ExampleClient() {
     // key2 does not exist
 }
 
-func InitDB() error {
+func InitDB(db_addr string) error {
     rdb = redis.NewClient(&redis.Options{
-        Addr:     "localhost:12013",
+        //Addr:     "localhost:7001",
+        Addr:     db_addr,
         Password: "",
         DB:       0,
     })
@@ -73,7 +74,7 @@ func DB_Get(key string) string {
         panic(err)
         //return errors.New(fmt.Sprintf("DB Get (%s) failed", key))
     } else {
-        fmt.Println("DB Get (key %s: value %s)", key, value)
+        fmt.Printf("DB Get (key %s: value %s)\n", key, value)
     }
     return value
 }

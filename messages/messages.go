@@ -42,10 +42,16 @@ type Dependency_t struct{
     Version Version_t
 }
 
+type Pending_write_t struct{
+    Key string
+    Value string
+    Timestamp int
+    Datacenter_id int
+}
+
 /* Request and Response Definition */
 type Read_request_t struct {
     Key string
-    PeerAddr string
 }
 
 type Read_response_t struct {
@@ -56,7 +62,8 @@ type Read_response_t struct {
 type Write_request_t struct {
     Key string
     Value string
-    PeerAddr string
+    Delay_1 int
+    Delay_2 int
 }
 
 type Write_response_t struct {
@@ -64,8 +71,8 @@ type Write_response_t struct {
 }
 
 type Propagate_request_t struct {
-    write_request Write_request_t
-    dependency_list []Dependency_t
+    Write_request Write_request_t
+    Dependency_list []Dependency_t
 }
 
 type Propagate_response_t struct {
@@ -73,10 +80,9 @@ type Propagate_response_t struct {
 }
 
 
-func EncodeReadRequest(key string, peer_addr string) []byte {
+func EncodeReadRequest(key string) []byte {
     var req = Read_request_t {
                 key,
-                peer_addr,
               }
     req_bytes, _ := json.Marshal(&req)
     //fmt.Println("Encode Read Request: ", string(req_bytes))
@@ -90,11 +96,12 @@ func EncodeReadRequest(key string, peer_addr string) []byte {
     return []byte(req_str)
 }
 
-func EncodeWriteRequest(key string, value string, peer_addr string) []byte {
+func EncodeWriteRequest(key string, value string, delay_1 int, delay_2 int) []byte {
     var req = Write_request_t {
                 key,
                 value,
-                peer_addr,
+                delay_1,
+                delay_2,
               }
     req_bytes, _ := json.Marshal(&req)
     //fmt.Println("Encode Write Request: ", string(req_bytes))
@@ -108,11 +115,12 @@ func EncodeWriteRequest(key string, value string, peer_addr string) []byte {
     return []byte(req_str)
 }
 
-func EncodePropagateRequest(key string, value string, dependency_list []Dependency_t, peer_addr string) []byte {
+func EncodePropagateRequest(key string, value string, dependency_list []Dependency_t) []byte {
     var write_req = Write_request_t {
                 key,
                 value,
-                peer_addr,
+                0,
+                0,
               }
     var req = Propagate_request_t {
                 write_req,
