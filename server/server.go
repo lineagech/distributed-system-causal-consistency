@@ -64,10 +64,11 @@ func check_err(err error) {
 
 func get_data_info(key string) messages.Data_info_t{
     var data_info_str string
-    data_info_str = db.DB_Get(key)
-    split_str := strings.Split(data_info_str, ";")
     var timestamp int
     var write_datacenter_id int
+
+    data_info_str = db.DB_Get(key)
+    split_str := strings.Split(data_info_str, ";")
 
     timestamp, err := strconv.Atoi(split_str[1])
     check_err(err)
@@ -168,12 +169,13 @@ func clear_prior_pendings(arrived_dependency messages.Dependency_t){
         // this write is no longer pending
         if len(not_received_list) == 0{
             delete(pending_queue_map, pending_write)
-            fmt.Printf("propagate request for enables dependency for key = %s, ts = %d, dcID = %d to be commited", arrived_dependency.Key, pending_write.Key, pending_write.Timestamp, pending_write.Datacenter_id)
+            fmt.Printf("propagate request of key = %s enables dependency for key = %s, ts = %d, dcID = %d to be commited\n", arrived_dependency.Key, pending_write.Key, pending_write.Timestamp, pending_write.Datacenter_id)
             // commit pending_write if all of its dependencies have arrived
             var version = messages.Version_t{
                             pending_write.Timestamp,
                             pending_write.Datacenter_id,
                             }
+            fmt.Printf("can commit propagate request for key = %s, value = %s\n", pending_write.Key, pending_write.Value)
             update_local_DB(pending_write.Key, pending_write.Value, version)
             update_time(pending_write.Timestamp + 1)
         }
@@ -201,10 +203,10 @@ func handle_read_request(msg []byte) messages.Read_response_t {
 
     var req messages.Read_request_t
 
-    json.Unmarshal(msg, &req)
-
     var curr_value string
     var curr_version messages.Version_t
+
+    json.Unmarshal(msg, &req)
 
     curr_value = get_value(req.Key)
     curr_version = get_version(req.Key)
@@ -215,6 +217,11 @@ func handle_read_request(msg []byte) messages.Read_response_t {
                         }
 
     append_to_dependency_list(dependency)
+    fmt.Printf("Append to DL for read request, my dependency list: key = \n")
+    for _, curr_dependency := range dependency_list{
+        fmt.Printf("%s ", curr_dependency.Key)
+    }
+    fmt.Printf("\n")
 
     increment_time()
 
@@ -239,10 +246,16 @@ func handle_write_request(msg []byte) messages.Write_response_t {
     // update both value and ts, datacenter id in local database
     update_local_DB(req.Key, req.Value, new_version)
 
+    // add this local write to received write list as well
+    var write_dependency = messages.Dependency_t{
+                            req.Key,
+                            new_version,
+                            }
+    add_to_received_writes(write_dependency)
 
     // propagate data to every other datacenter
     fmt.Printf("propagate write to other datacenters, key = %s, value = %s, new time = %d, new dcID = %d\n", req.Key, req.Value, new_version.Timestamp, new_version.Datacenter_id)
-    propagateData(req.Key, req.Value, dependency_list, new_version, req.Delay_1, req.Delay_2)
+    go propagateData(req.Key, req.Value, dependency_list, new_version, req.Delay_1, req.Delay_2)
 
     // recreate dependency list of this client
     recreate_dependency_list(req.Key, new_version)
@@ -266,6 +279,16 @@ func handle_propagate_request(msg []byte) messages.Propagate_response_t{
     var dependency_for_write_request = attached_dependency_list[len(attached_dependency_list) - 1]
     attached_dependency_list = attached_dependency_list[:(len(attached_dependency_list) - 1)]
 
+    for _, curr_dependency := range attached_dependency_list{
+        fmt.Printf("coming propagate has dependency with key = %s\n", curr_dependency.Key)
+
+    }
+
+    for _, my_dependency := range dependency_list{
+        fmt.Printf("Now I have dependency with key = %s\n", my_dependency.Key)
+
+    }
+
     var pending_write = messages.Pending_write_t{
                             req.Write_request.Key,
                             req.Write_request.Value,
@@ -281,7 +304,7 @@ func handle_propagate_request(msg []byte) messages.Propagate_response_t{
         received = search_received_writes(dependency)
         if (received == false){
             need_delay = true
-            fmt.Printf("propagate request for key = %s, value = %s has a not arrived dependency for key = %s, ts = %d, dcID = %d", req.Write_request.Key, req.Write_request.Value, dependency.Key, dependency.Version.Timestamp, dependency.Version.Datacenter_id)
+            fmt.Printf("propagate request for key = %s, value = %s has a not arrived dependency for key = %s, ts = %d, dcID = %d\n", req.Write_request.Key, req.Write_request.Value, dependency.Key, dependency.Version.Timestamp, dependency.Version.Datacenter_id)
             // put this dependency to the coming write's pending queue
             update_not_received_list(dependency, pending_write)
         }
@@ -290,15 +313,16 @@ func handle_propagate_request(msg []byte) messages.Propagate_response_t{
 
     // put the dependency about this coming write request into received list
     add_to_received_writes(dependency_for_write_request)
-    // see if this coming write can clear any pending writes
-    clear_prior_pendings(dependency_for_write_request)
 
     // commit this write if no pending dependencies
     if (need_delay == false){
-        fmt.Printf("can commit propagate request for key = %s, value = %s", req.Write_request.Key, req.Write_request.Value)
+        fmt.Printf("can commit propagate request for key = %s, value = %s\n", req.Write_request.Key, req.Write_request.Value)
         update_local_DB(req.Write_request.Key, req.Write_request.Value, dependency_for_write_request.Version)
         update_time(pending_write.Timestamp + 1)
     }
+
+    // see if this coming write can clear any pending writes
+    clear_prior_pendings(dependency_for_write_request)
 
     var res  = messages.Propagate_response_t {1}
 
@@ -314,41 +338,48 @@ func propagateData(key string, value string, curr_dependency_list []messages.Dep
                         }
 
     var updated_dependency_list []messages.Dependency_t
+    var neighbor_list = []string{}
+    var delay_list = []int{delay_1, delay_2}
+
     updated_dependency_list = append(curr_dependency_list, new_dependency)
 
-    var neighbor_num int = 0 // left to right in datacenter_port_list
     for _, port_num := range datacenter_port_list{
         if (port_num != my_port){
-            if (neighbor_num == 0){
-                fmt.Printf("Delay sending propagate request for key = %s, value = %s to datacenter port = %s for %d seconds\n", key, value, port_num, delay_1)
-                time.Sleep(time.Duration(delay_1) * time.Second)
-            }else{
-                fmt.Printf("Delay sending propagate request for key = %s, value = %s to datacenter port = %s for %d seconds\n", key, value, port_num, delay_2)
-                time.Sleep(time.Duration(delay_2) * time.Second)
-            }
-            fmt.Printf("Start sending propagate request for key = %s, value = %s to datacenter port = %s\n", key, value, port_num)
-            neighbor_num++
-            for{
-                conn := connect.ConnectToServer("127.0.0.1", port_num)
-                err := connect.SendPropagateRequest(conn, key, value, updated_dependency_list)
-                if (err != nil){
-                    conn.Close()
-                    continue
-                }
-                recv_msg, err := connect.RecvMsg(conn, messages.Propagate_Request)
-                if (err != nil){
-                    conn.Close()
-                    continue
-                }
-                propagate_resp := recv_msg.(messages.Propagate_response_t)
-                if propagate_resp.Prop_succ == 1 {
-                    fmt.Printf("%s: Propagate for key = %s to 127.0.0.1:%s Succeeded\n", my_addr, key, port_num)
-                    break
-                }else{
-                    fmt.Printf("%s: Propagate for key = %s to 127.0.0.1:%s failed\n", my_addr, key, port_num)
-                    continue
-                }
-            }
+            neighbor_list = append(neighbor_list, port_num)
+        }
+    }
+
+
+    for i := 0; i < len(neighbor_list); i++{
+        go propateToNeighbor(key, value, updated_dependency_list, neighbor_list[i], delay_list[i])
+    }
+
+}
+
+
+func propateToNeighbor(key string, value string, updated_dependency_list []messages.Dependency_t, neighbor_port string, delay int){
+    fmt.Printf("Delay sending propagate request for key = %s, value = %s to datacenter port = %s for %d seconds\n", key, value, neighbor_port, delay)
+    time.Sleep(time.Duration(delay) * time.Second)
+    fmt.Printf("Start sending propagate request for key = %s, value = %s to datacenter port = %s\n", key, value, neighbor_port)
+    for{
+        conn := connect.ConnectToServer("127.0.0.1", neighbor_port)
+        err := connect.SendPropagateRequest(conn, key, value, updated_dependency_list)
+        if (err != nil){
+            conn.Close()
+            continue
+        }
+        recv_msg, err := connect.RecvMsg(conn, messages.Propagate_Request)
+        if (err != nil){
+            conn.Close()
+            continue
+        }
+        propagate_resp := recv_msg.(messages.Propagate_response_t)
+        if propagate_resp.Prop_succ == 1 {
+            fmt.Printf("%s: Propagate for key = %s to 127.0.0.1:%s Succeeded\n", my_addr, key, neighbor_port)
+            break
+        }else{
+            fmt.Printf("%s: Propagate for key = %s to 127.0.0.1:%s failed\n", my_addr, key, neighbor_port)
+            continue
         }
     }
 }

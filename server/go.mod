@@ -6,10 +6,10 @@ replace connect => ../connect
 
 require (
 	connect v0.0.0-00010101000000-000000000000
-	messages v0.0.0-00010101000000-000000000000 // indirect
-	snapshot v0.0.0-00010101000000-000000000000 // indirect
+	db v0.0.0-00010101000000-000000000000
+	messages v0.0.0-00010101000000-000000000000
 )
 
 replace messages => ../messages
 
-replace snapshot => ../snapshot
+replace db => ../db
