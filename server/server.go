@@ -14,6 +14,7 @@ import (
     _ "unsafe"
     "flag"
     "time"
+    "sort"
 )
 
 /*-----------------------------------------------------------------*/
@@ -165,20 +166,32 @@ func clear_prior_pendings(arrived_dependency messages.Dependency_t){
         }
         pending_queue_map[pending_write] = list_copy
     }
+
+    var to_commit_write_list []messages.Pending_write_t
+
     for pending_write, not_received_list := range pending_queue_map{
-        // this write is no longer pending
+        // this write is no longer pending, add it to to_commit list
         if len(not_received_list) == 0{
+            to_commit_write_list = append(to_commit_write_list, pending_write)
             delete(pending_queue_map, pending_write)
-            fmt.Printf("propagate request of key = %s enables dependency for key = %s, ts = %d, dcID = %d to be commited\n", arrived_dependency.Key, pending_write.Key, pending_write.Timestamp, pending_write.Datacenter_id)
-            // commit pending_write if all of its dependencies have arrived
-            var version = messages.Version_t{
-                            pending_write.Timestamp,
-                            pending_write.Datacenter_id,
-                            }
-            fmt.Printf("can commit propagate request for key = %s, value = %s\n", pending_write.Key, pending_write.Value)
-            update_local_DB(pending_write.Key, pending_write.Value, version)
-            update_time(pending_write.Timestamp + 1)
         }
+    }
+
+    // sort the to_commit list by pending_write.timestamp
+    sort.SliceStable(to_commit_write_list, func(i, j int) bool {
+        return to_commit_write_list[i].Timestamp < to_commit_write_list[j].Timestamp
+    })
+
+    for _, to_commit_write := range to_commit_write_list{
+        fmt.Printf("propagate request of key = %s enables dependency for key = %s, ts = %d, dcID = %d to be commited\n", arrived_dependency.Key, to_commit_write.Key, to_commit_write.Timestamp, to_commit_write.Datacenter_id)
+        // commit pending_write if all of its dependencies have arrived
+        var version = messages.Version_t{
+                        to_commit_write.Timestamp,
+                        to_commit_write.Datacenter_id,
+                        }
+        fmt.Printf("can commit propagate request for key = %s, value = %s\n", to_commit_write.Key, to_commit_write.Value)
+        update_local_DB(to_commit_write.Key, to_commit_write.Value, version)
+        update_time(to_commit_write.Timestamp + 1)
     }
 }
 
