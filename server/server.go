@@ -193,6 +193,19 @@ func clear_prior_pendings(arrived_dependency messages.Dependency_t){
         update_local_DB(to_commit_write.Key, to_commit_write.Value, version)
         update_time(to_commit_write.Timestamp + 1)
     }
+
+    // check if these newly commited writes can clear prior pending writes
+    for _, to_commit_write := range to_commit_write_list{
+        var to_commit_version = messages.Version_t{
+                                    to_commit_write.Timestamp,
+                                    to_commit_write.Datacenter_id,
+                                }
+        var to_commit_dependency = messages.Dependency_t{
+                                    to_commit_write.Key,
+                                    to_commit_version,
+                                    }
+        clear_prior_pendings(to_commit_dependency)
+    }
 }
 
 /*----------------------End of datacenter resources-----------------------*/
@@ -332,10 +345,10 @@ func handle_propagate_request(msg []byte) messages.Propagate_response_t{
         fmt.Printf("can commit propagate request for key = %s, value = %s\n", req.Write_request.Key, req.Write_request.Value)
         update_local_DB(req.Write_request.Key, req.Write_request.Value, dependency_for_write_request.Version)
         update_time(pending_write.Timestamp + 1)
+        // see if this coming write that can be committed can clear any pending writes
+        clear_prior_pendings(dependency_for_write_request)
     }
 
-    // see if this coming write can clear any pending writes
-    clear_prior_pendings(dependency_for_write_request)
 
     var res  = messages.Propagate_response_t {1}
 
